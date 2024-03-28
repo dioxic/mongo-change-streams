@@ -1,6 +1,7 @@
 package com.mongodb.csp;
 
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoNamespace;
 import com.mongodb.csp.converters.ConnectionStringConverter;
 import com.mongodb.csp.converters.NamespaceConverter;
@@ -15,6 +16,10 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.util.concurrent.Callable;
+
+import static com.mongodb.client.model.changestream.ChangeStreamDocument.createCodec;
+import static org.bson.codecs.configuration.CodecRegistries.fromCodecs;
+import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
 @Command(name = "csp", mixinStandardHelpOptions = true, description = "Change stream processor")
 class App implements Callable<Integer> {
@@ -59,6 +64,10 @@ class App implements Callable<Integer> {
     )
     private Processor processor;
 
+    @Option(names = {"--log-dups"},
+            description = "Log duplicate key exceptions")
+    private Boolean logDupEx;
+
     @Override
     public Integer call() throws Exception {
 
@@ -75,14 +84,23 @@ class App implements Callable<Integer> {
         }
 
         MongoClient srcClient = MongoClients.create(srcConnectionString);
-        MongoClient targetClient = MongoClients.create(targetConnectionString);
+        MongoClient targetClient = MongoClients.create(MongoClientSettings.builder()
+                .applyConnectionString(targetConnectionString)
+                .codecRegistry(fromRegistries(
+                        MongoClientSettings.getDefaultCodecRegistry(),
+                        fromCodecs(createCodec(Document.class, MongoClientSettings.getDefaultCodecRegistry()))
+                ))
+                .build());
 
-        new Worker().doStuff(processor,
+        new Worker(
+                logDupEx,
+                processor,
                 getCollection(srcClient, srcNamespace),
                 getCollection(targetClient, targetNamespace),
                 getCollection(targetClient, tokenNamespace),
                 getCollection(targetClient, errorNamespace),
-                null);
+                null
+        ).run();
 
         return 0;
     }
