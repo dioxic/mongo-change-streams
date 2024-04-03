@@ -1,6 +1,7 @@
-package com.mongodb.csp;
+package com.mongodb.csp.model;
 
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import com.mongodb.csp.ResumeTokenComparator;
 import org.bson.Document;
 
 import java.util.Comparator;

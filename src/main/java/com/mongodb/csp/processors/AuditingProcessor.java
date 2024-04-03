@@ -1,7 +1,5 @@
 package com.mongodb.csp.processors;
 
-import com.mongodb.client.model.InsertOneModel;
-import com.mongodb.client.model.WriteModel;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -18,22 +16,27 @@ public class AuditingProcessor implements Processor {
     public List<Bson> getChangeStreamPipeline() {
         return List.of(
                 match(and(
-                        in("operationType", List.of("insert", "update", "delete"))
+                        in("operationType", List.of("insert", "delete"))
                 ))
         );
     }
 
     @Override
-    public WriteModel<Document> transform(ChangeStreamDocument<Document> changeStreamDocument) {
+    public Document transform(ChangeStreamDocument<Document> changeStreamDocument) {
         var doc = new Document();
 
-        doc.put("docKey", changeStreamDocument.getDocumentKey());
-        doc.put("clusterTime", changeStreamDocument.getClusterTime());
-        doc.put("fullDocument", changeStreamDocument.getFullDocument());
-        doc.put("operationType", changeStreamDocument.getOperationType());
-        doc.put("resumeToken", changeStreamDocument.getResumeToken());
+        doc.put("_id", changeStreamDocument.getDocumentKey().get("_id"));
+        doc.put("name", changeStreamDocument.getFullDocument().get("name"));
 
-        return new InsertOneModel<>(doc);
+        var debugDoc = new Document();
+        debugDoc.put("clusterTime", changeStreamDocument.getClusterTime());
+        debugDoc.put("fullDocument", changeStreamDocument.getFullDocument());
+        debugDoc.put("operationType", changeStreamDocument.getOperationType());
+        debugDoc.put("resumeToken", changeStreamDocument.getResumeToken());
+
+        doc.put("debug", debugDoc);
+
+        return doc;
     }
 
 }

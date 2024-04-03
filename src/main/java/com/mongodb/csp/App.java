@@ -94,14 +94,13 @@ class App implements Callable<Integer> {
                 ))
                 .build());
 
-        new BulkWorker(
+        new SimpleWorker(
                 logDupEx,
                 processor,
                 getCollection(srcClient, srcNamespace),
                 getCollection(targetClient, targetNamespace),
                 getCollection(targetClient, tokenNamespace),
-                getCollection(targetClient, errorNamespace),
-                null
+                getCollection(targetClient, errorNamespace)
         ).run();
 
         return 0;

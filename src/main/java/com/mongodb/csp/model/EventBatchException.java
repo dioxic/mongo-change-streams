@@ -1,4 +1,4 @@
-package com.mongodb.csp;
+package com.mongodb.csp.model;
 
 import com.mongodb.MongoBulkWriteException;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;

@@ -1,10 +1,9 @@
-package com.mongodb.csp;
+package com.mongodb.csp.model;
 
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import org.bson.BsonDocument;
 import org.bson.Document;
 
-import java.util.Comparator;
 import java.util.List;
 
 public record EventBatchResult<T>(List<ChangeStreamDocument<Document>> events, T result) {
