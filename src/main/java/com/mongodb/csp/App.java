@@ -65,7 +65,9 @@ class App implements Callable<Integer> {
     private Processor processor;
 
     @Option(names = {"--log-dups"},
-            description = "Log duplicate key exceptions")
+            description = "Log duplicate key exceptions",
+            defaultValue = "true"
+    )
     private Boolean logDupEx;
 
     @Override
@@ -92,7 +94,7 @@ class App implements Callable<Integer> {
                 ))
                 .build());
 
-        new Worker(
+        new BulkWorker(
                 logDupEx,
                 processor,
                 getCollection(srcClient, srcNamespace),
