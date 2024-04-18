@@ -1,4 +1,4 @@
-package com.mongodb.csp;
+package com.mongodb.csp.workers;
 
 import com.mongodb.ErrorCategory;
 import com.mongodb.MongoBulkWriteException;
@@ -8,7 +8,6 @@ import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Field;
 import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
-import com.mongodb.csp.model.EventTransformPair;
 import com.mongodb.csp.processors.Processor;
 import org.bson.BsonDocument;
 import org.bson.Document;
@@ -16,7 +15,6 @@ import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -53,12 +51,6 @@ public abstract class AbstractWorker implements Callable<Integer> {
         this.targetCollection = targetCollection;
         this.tokenCollection = tokenCollection;
         this.errorCollection = errorCollection;
-    }
-
-    protected EventTransformPair<Document> pairTransform(
-            ChangeStreamDocument<Document> changeStreamDocument,
-            Processor processor) {
-        return new EventTransformPair<>(changeStreamDocument, processor.transform(changeStreamDocument));
     }
 
     /**

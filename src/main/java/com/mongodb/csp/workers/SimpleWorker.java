@@ -1,4 +1,4 @@
-package com.mongodb.csp;
+package com.mongodb.csp.workers;
 
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoServerException;

@@ -10,6 +10,8 @@ import com.mongodb.csp.converters.ConnectionStringConverter;
 import com.mongodb.csp.converters.NamespaceConverter;
 import com.mongodb.csp.converters.ProcessorConverter;
 import com.mongodb.csp.processors.Processor;
+import com.mongodb.csp.workers.AbstractWorker;
+import com.mongodb.csp.workers.SimpleWorker;
 import org.bson.Document;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
