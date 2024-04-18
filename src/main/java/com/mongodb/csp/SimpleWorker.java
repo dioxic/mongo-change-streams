@@ -2,63 +2,63 @@ package com.mongodb.csp;
 
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoServerException;
-import com.mongodb.MongoWriteException;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.csp.processors.Processor;
-import com.mongodb.reactivestreams.client.MongoCollection;
 import org.bson.Document;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
-import java.util.function.Predicate;
 
 import static com.mongodb.client.model.Filters.eq;
 
 public class SimpleWorker extends AbstractWorker {
 
-    public SimpleWorker(Boolean logDupKeyEx,
+    public SimpleWorker(Integer workerId,
+                        Integer totalWorkers,
+                        Boolean logDupKeyEx,
                         Processor processor,
                         MongoCollection<Document> sourceCollection,
                         MongoCollection<Document> targetCollection,
                         MongoCollection<Document> tokenCollection,
                         MongoCollection<Document> errorCollection) {
-        super(logDupKeyEx, processor, sourceCollection, targetCollection, tokenCollection, errorCollection);
+        super(workerId, totalWorkers, logDupKeyEx, processor, sourceCollection, targetCollection, tokenCollection, errorCollection);
     }
 
-    private final Predicate<Throwable> exPredicate = e -> (e instanceof MongoServerException)
-            && (!(e instanceof DuplicateKeyException) || logDupKeyEx);
-
-    public void run() {
-
-        var pipeline = processor.getChangeStreamPipeline();
+    public Integer call() {
+        var upsertReplaceOptions = new ReplaceOptions().upsert(true);
+        var pipeline = getChangeStreamPipeline();
         var resumeToken = getResumeToken();
-        var publisher = sourceCollection.watch(pipeline);
+
+        logger.info("Initiating change stream with pipeline: {}", pipeline);
+        var cs = sourceCollection.watch(pipeline);
 
         if (resumeToken != null) {
-            publisher = publisher.resumeAfter(resumeToken);
+            logger.info("Change stream resuming from {}", resumeToken);
+            cs = cs.resumeAfter(resumeToken);
         }
 
-        Flux.from(publisher)
-                .doOnSubscribe(subscriber -> logger.info("Subscribed to change stream on '{}' with pipeline {}", sourceCollection.getNamespace(), pipeline))
-                .doOnComplete(() -> logger.info("Completed change stream"))
-                .doOnCancel(() -> logger.info("Cancelled change stream"))
-                .doOnNext(event -> logger.debug("Processing event: {}", event))
-                .concatMap(event -> processor.handle(targetCollection, event)
-                        .doOnError(exPredicate, e -> {
-                            var errDoc = createErrorDocument((MongoServerException) e, event);
-                            Mono.from(errorCollection.insertOne(errDoc)).block();
-                        })
-                        .onErrorResume(MongoWriteException.class, e -> Mono.empty())
-                        .flatMap(res -> {
-                            var tokenDoc = createTokenDocument(event);
-                            return Mono.from(tokenCollection.replaceOne(
-                                    eq("_id", tokenDoc.get("_id")),
-                                    tokenDoc,
-                                    new ReplaceOptions().upsert(true))
-                            );
-                        })
-                )
-                .blockLast();
-    }
+        cs.forEach(event -> {
+            try {
+                logger.debug("Handing changestream msg {}", event);
+                processor.handle(targetCollection, event);
+                var tokenDoc = createTokenDocument(event);
+                logger.debug("Persisting resume token {}", tokenDoc);
+                tokenCollection.replaceOne(
+                        eq("_id", tokenDoc.get("_id")),
+                        tokenDoc,
+                        upsertReplaceOptions
+                );
+            } catch (MongoServerException e) {
+                if (!(e instanceof DuplicateKeyException) || logDupKeyEx) {
+                    var errDoc = createErrorDocument(e, event);
+                    errorCollection.insertOne(errDoc);
+                    throw new RuntimeException(e);
+                } else {
+                    logger.trace("Ignoring duplicate key exception");
+                }
+            }
+        });
 
+        logger.info("Change stream worker finished");
+
+        return 0;
+    }
 }

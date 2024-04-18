@@ -12,15 +12,14 @@ repositories {
 }
 
 dependencies {
-    implementation(platform("io.projectreactor:reactor-bom:2023.0.4"))
-    implementation("io.projectreactor:reactor-core")
     implementation("org.reflections:reflections:0.10.2")
     implementation("org.slf4j:slf4j-api:2.0.9")
-    implementation(platform("org.apache.logging.log4j:log4j-bom:2.23.1"))
-    implementation("org.apache.logging.log4j:log4j-core")
-    implementation("org.apache.logging.log4j:log4j-api")
-    implementation("org.apache.logging.log4j:log4j-slf4j2-impl")
-    implementation("org.mongodb:mongodb-driver-reactivestreams:4.11.1")
+    implementation("ch.qos.logback:logback-classic:1.5.6")
+//    implementation(platform("org.apache.logging.log4j:log4j-bom:2.23.1"))
+//    implementation("org.apache.logging.log4j:log4j-core")
+//    implementation("org.apache.logging.log4j:log4j-api")
+//    implementation("org.apache.logging.log4j:log4j-slf4j2-impl")
+    implementation("org.mongodb:mongodb-driver-sync:4.11.1")
     annotationProcessor("info.picocli:picocli-codegen:4.7.5")
     implementation("info.picocli:picocli:4.7.5")
     testImplementation(platform("org.junit:junit-bom:5.10.2"))

@@ -10,7 +10,7 @@ import static com.mongodb.client.model.Aggregates.match;
 import static com.mongodb.client.model.Filters.and;
 import static com.mongodb.client.model.Filters.in;
 
-public class AuditingProcessor implements Processor {
+public class ExampleProcessor implements Processor {
 
     @Override
     public List<Bson> getChangeStreamPipeline() {
@@ -33,6 +33,10 @@ public class AuditingProcessor implements Processor {
         debugDoc.put("fullDocument", changeStreamDocument.getFullDocument());
         debugDoc.put("operationType", changeStreamDocument.getOperationType());
         debugDoc.put("resumeToken", changeStreamDocument.getResumeToken());
+
+        if (changeStreamDocument.getExtraElements() != null) {
+            debugDoc.put("workerId", changeStreamDocument.getExtraElements().get("workerId"));
+        }
 
         doc.put("debug", debugDoc);
 

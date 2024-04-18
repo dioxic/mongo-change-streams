@@ -3,19 +3,23 @@ package com.mongodb.csp;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoNamespace;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.csp.converters.ConnectionStringConverter;
 import com.mongodb.csp.converters.NamespaceConverter;
 import com.mongodb.csp.converters.ProcessorConverter;
 import com.mongodb.csp.processors.Processor;
-import com.mongodb.reactivestreams.client.MongoClient;
-import com.mongodb.reactivestreams.client.MongoClients;
-import com.mongodb.reactivestreams.client.MongoCollection;
 import org.bson.Document;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.mongodb.client.model.changestream.ChangeStreamDocument.createCodec;
 import static org.bson.codecs.configuration.CodecRegistries.fromCodecs;
@@ -52,15 +56,15 @@ class App implements Callable<Integer> {
             converter = NamespaceConverter.class)
     private MongoNamespace tokenNamespace;
 
-
     @Option(names = {"--error-ns"},
             description = "Error namespace",
             converter = NamespaceConverter.class)
     private MongoNamespace errorNamespace;
+
     @Option(names = {"--p", "--processor"},
             description = "Change stream processor",
             converter = ProcessorConverter.class,
-            defaultValue = "AuditingProcessor"
+            defaultValue = "ExampleProcessor"
     )
     private Processor processor;
 
@@ -69,6 +73,17 @@ class App implements Callable<Integer> {
             defaultValue = "true"
     )
     private Boolean logDupEx;
+
+    @Option(names = {"--total-workers"},
+            description = "total number of workers",
+            defaultValue = "1")
+    private Integer totalWorkers;
+
+    @Option(names = {"--instance-workers"},
+            split = ",",
+            description = "worker ids for this instance",
+            defaultValue = "0")
+    private int[] instanceWorkers;
 
     @Override
     public Integer call() throws Exception {
@@ -94,14 +109,22 @@ class App implements Callable<Integer> {
                 ))
                 .build());
 
-        new SimpleWorker(
-                logDupEx,
-                processor,
-                getCollection(srcClient, srcNamespace),
-                getCollection(targetClient, targetNamespace),
-                getCollection(targetClient, tokenNamespace),
-                getCollection(targetClient, errorNamespace)
-        ).run();
+        ExecutorService executorService = Executors.newFixedThreadPool(instanceWorkers.length);
+        List<AbstractWorker> workers = new ArrayList<>();
+
+        for (int workerId : instanceWorkers) {
+            workers.add(new SimpleWorker(workerId,
+                    totalWorkers,
+                    logDupEx,
+                    processor,
+                    getCollection(srcClient, srcNamespace),
+                    getCollection(targetClient, targetNamespace),
+                    getCollection(targetClient, tokenNamespace),
+                    getCollection(targetClient, errorNamespace)
+            ));
+        }
+
+        executorService.invokeAll(workers);
 
         return 0;
     }
@@ -110,8 +133,6 @@ class App implements Callable<Integer> {
         return client.getDatabase(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
     }
 
-    // this example implements Callable, so parsing, error handling and handling user
-    // requests for usage help or version help can be done with one line of code.
     public static void main(String... args) {
         int exitCode = new CommandLine(new App()).execute(args);
         System.exit(exitCode);
