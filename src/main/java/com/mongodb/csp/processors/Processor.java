@@ -34,6 +34,7 @@ public interface Processor {
         return targetCollection.bulkWrite(writeModels);
     }
 
+    // TODO change to updateOne and handle modification count = 0
     default UpdateResult write(MongoCollection<Document> targetCollection, Document doc) {
         return targetCollection.replaceOne(
                 Filters.eq("_id", doc.get("_id")),

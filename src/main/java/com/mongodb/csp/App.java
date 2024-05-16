@@ -6,11 +6,11 @@ import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.csp.converters.ConnectionStringConverter;
 import com.mongodb.csp.converters.NamespaceConverter;
 import com.mongodb.csp.converters.ProcessorConverter;
 import com.mongodb.csp.processors.Processor;
-import com.mongodb.csp.workers.AbstractWorker;
 import com.mongodb.csp.workers.SimpleWorker;
 import org.bson.Document;
 import picocli.CommandLine;
@@ -19,9 +19,7 @@ import picocli.CommandLine.Option;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 import static com.mongodb.client.model.changestream.ChangeStreamDocument.createCodec;
 import static org.bson.codecs.configuration.CodecRegistries.fromCodecs;
@@ -112,7 +110,11 @@ class App implements Callable<Integer> {
                 .build());
 
         ExecutorService executorService = Executors.newFixedThreadPool(instanceWorkers.length);
-        List<AbstractWorker> workers = new ArrayList<>();
+        List<Callable<Integer>> workers = new ArrayList<>();
+        BlockingQueue<ChangeStreamDocument<Document>> eventQueue = new ArrayBlockingQueue<>(100);
+        List<BlockingQueue<ChangeStreamDocument<Document>>> fanOutQueue = new ArrayList<>();
+
+        workers.add(new CsWatcher(List.of(), srcClient, eventQueue));
 
         for (int workerId : instanceWorkers) {
             workers.add(new SimpleWorker(workerId,
